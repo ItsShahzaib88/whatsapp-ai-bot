@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp AI Bot - Connect</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="glass-panel">
+            <div class="header">
+                <h1>Connect WhatsApp</h1>
+                <p>Turn your personal WhatsApp into a powerful AI bot instantly.</p>
+            </div>
+
+            <div class="form-group" id="phone-input-group">
+                <label for="sessionId">Enter your Phone Number (e.g., 923001234567)</label>
+                <input type="text" id="sessionId" placeholder="CountryCode + Number" autocomplete="off" />
+                <button id="start-btn" class="primary-btn">Generate QR Code</button>
+            </div>
+
+            <div class="status-box hidden" id="status-box">
+                <div class="spinner" id="loading-spinner"></div>
+                <p id="status-text">Initializing...</p>
+            </div>
+
+            <div class="qr-container hidden" id="qr-container">
+                <img id="qr-image" src="" alt="WhatsApp QR Code" />
+                <p class="instruction">Open WhatsApp on your phone &gt; Linked Devices &gt; Link a Device</p>
+            </div>
+
+            <div class="success-box hidden" id="success-box">
+                <div class="checkmark">✔</div>
+                <h2>Connected Successfully!</h2>
+                <p>Your AI bot is now active and listening for messages.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        
+        const startBtn = document.getElementById('start-btn');
+        const sessionIdInput = document.getElementById('sessionId');
+        const statusBox = document.getElementById('status-box');
+        const statusText = document.getElementById('status-text');
+        const qrContainer = document.getElementById('qr-container');
+        const qrImage = document.getElementById('qr-image');
+        const successBox = document.getElementById('success-box');
+        const phoneInputGroup = document.getElementById('phone-input-group');
+        const loadingSpinner = document.getElementById('loading-spinner');
+
+        startBtn.addEventListener('click', () => {
+            const sessionId = sessionIdInput.value.trim();
+            if (!sessionId) {
+                alert('Please enter your phone number.');
+                return;
+            }
+
+            // UI updates
+            phoneInputGroup.classList.add('hidden');
+            statusBox.classList.remove('hidden');
+            statusText.textContent = 'Connecting to server...';
+
+            socket.emit('start_session', { sessionId });
+        });
+
+        socket.on('message', (data) => {
+            statusText.textContent = data.text;
+        });
+
+        socket.on('qr', (data) => {
+            qrImage.src = data.src;
+            qrContainer.classList.remove('hidden');
+            loadingSpinner.classList.add('hidden');
+        });
+
+        socket.on('ready', (data) => {
+            qrContainer.classList.add('hidden');
+            statusBox.classList.add('hidden');
+            successBox.classList.remove('hidden');
+        });
+
+        socket.on('authenticated', (data) => {
+            statusText.textContent = 'Authenticated. Finalizing connection...';
+            qrContainer.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+        });
+
+    </script>
+</body>
+</html>
