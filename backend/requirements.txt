@@ -15,6 +15,7 @@ pydantic-settings==2.7.0
 # MongoDB Async Driver
 motor==3.6.0
 pymongo==4.9.2
+dnspython==2.7.0
 
 # Redis Async
 redis==5.2.1
