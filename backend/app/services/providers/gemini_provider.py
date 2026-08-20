@@ -57,12 +57,26 @@ class GeminiProvider(AIProvider):
 
             for msg in messages:
                 role = "user" if msg["role"] == "user" else "model"
+                
+                parts = []
+                if msg.get("content"):
+                    parts.append(msg["content"])
+                    
+                if msg.get("media_data") and msg.get("media_mimetype"):
+                    parts.append({
+                        "mime_type": msg["media_mimetype"],
+                        "data": msg["media_data"]
+                    })
+                
+                if not parts:
+                    parts.append(" ") # fallback empty message
+
                 if msg == messages[-1] and msg["role"] == "user":
-                    last_user_message = msg["content"]
+                    last_user_message = parts
                 else:
                     gemini_history.append({
                         "role": role,
-                        "parts": [msg["content"]],
+                        "parts": parts,
                     })
 
             # Start chat with history

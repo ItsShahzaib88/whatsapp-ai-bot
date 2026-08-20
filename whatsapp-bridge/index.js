@@ -211,8 +211,8 @@ function startClient(usePairingCode, phoneNumber) {
         // Skip messages sent BY us (our own messages in other chats)
         if (message.fromMe) return;
 
-        // Skip empty messages (stickers, reactions, etc.)
-        if (!message.body || message.body.trim() === '') return;
+        // Skip empty messages unless they have media
+        if ((!message.body || message.body.trim() === '') && !message.hasMedia) return;
 
         const senderPhone = message.from.replace('@c.us', '');  // e.g. "923001234567"
         let senderName = 'User';
@@ -222,7 +222,22 @@ function startClient(usePairingCode, phoneNumber) {
             // Ignore if contact name cannot be fetched
         }
 
-        console.log(`\n📩 [RECEIVED] ${senderName} (${senderPhone}): ${message.body}`);
+        console.log(`\n📩 [RECEIVED] ${senderName} (${senderPhone}): ${message.body || '<media>'}`);
+
+        let mediaData = null;
+        let mediaMimetype = null;
+        if (message.hasMedia) {
+            try {
+                const media = await message.downloadMedia();
+                if (media) {
+                    mediaData = media.data;
+                    mediaMimetype = media.mimetype;
+                    console.log(`   📎 [ATTACHMENT] Received media: ${media.mimetype}`);
+                }
+            } catch (err) {
+                console.error(`   ❌ [MEDIA ERROR]: Failed to download media`, err.message);
+            }
+        }
 
         let chat = null;
         try {
@@ -244,18 +259,21 @@ function startClient(usePairingCode, phoneNumber) {
                 PYTHON_BACKEND_URL,
                 {
                     phone: senderPhone,
-                    text: message.body,
+                    text: message.body || "",
                     name: senderName,
+                    media_data: mediaData,
+                    media_mimetype: mediaMimetype,
                 },
                 {
-                    timeout: 30000,  // 30 second timeout for AI generation
+                    timeout: 120000,  // 120 second timeout for AI/Video generation
                 }
             );
 
             const aiReply = response.data?.reply;
+            const mediaUrl = response.data?.media_url;
 
             // Python backend returns null/empty if AI is disabled for this contact
-            if (!aiReply || aiReply.trim() === '') {
+            if (!aiReply && !mediaUrl) {
                 console.log(`   ⏭️  [SKIPPED] AI disabled for ${senderPhone} (toggled off from Dashboard)`);
                 if (chat) {
                     try { await chat.clearState(); } catch (e) {}
@@ -268,8 +286,15 @@ function startClient(usePairingCode, phoneNumber) {
 
             setTimeout(async () => {
                 try {
-                    await message.reply(aiReply);
-                    console.log(`   🤖 [REPLIED] (${(delay / 1000).toFixed(1)}s delay): ${aiReply.substring(0, 80)}...`);
+                    if (mediaUrl) {
+                        const { MessageMedia } = require('whatsapp-web.js');
+                        const media = await MessageMedia.fromUrl(mediaUrl, { unsafeMime: true });
+                        await message.reply(media, undefined, { caption: aiReply });
+                        console.log(`   🤖 [REPLIED] (${(delay / 1000).toFixed(1)}s delay) with media: ${mediaUrl}`);
+                    } else {
+                        await message.reply(aiReply);
+                        console.log(`   🤖 [REPLIED] (${(delay / 1000).toFixed(1)}s delay): ${aiReply?.substring(0, 80)}...`);
+                    }
                 } catch (sendError) {
                     console.error(`   ❌ [SEND ERROR]:`, sendError.message);
                 } finally {

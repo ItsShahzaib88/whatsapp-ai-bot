@@ -34,7 +34,9 @@ class WhatsAppService:
     Handles the complete flow: receive → classify → AI reply → send.
     """
 
-    async def process_internal_message(self, phone: str, text: str, name: str) -> str | None:
+    async def process_internal_message(
+        self, phone: str, text: str, name: str, media_data: str | None = None, media_mimetype: str | None = None
+    ) -> str | dict[str, Any] | None:
         """
         Process a message coming from the internal Node.js bridge (personal WhatsApp bot).
         Returns:
@@ -157,8 +159,20 @@ class WhatsAppService:
             auto_reply_mode=auto_mode,
             web_search_context=web_search_context,
         )
+        
+        system_prompt += (
+            "\n\n[SPECIAL ABILITIES]\n"
+            "If the user asks you to generate, create, or draw an image, picture, or photo, "
+            "you MUST include exactly this tag in your response: [GENERATE_IMAGE: <detailed description of the image to generate>]\n"
+            "If the user asks you to generate or edit a video, "
+            "you MUST include exactly this tag in your response: [GENERATE_VIDEO: <detailed description of the video>]"
+        )
 
-        context_messages.append({"role": "user", "content": text})
+        user_msg = {"role": "user", "content": text}
+        if media_data and media_mimetype:
+            user_msg["media_data"] = media_data
+            user_msg["media_mimetype"] = media_mimetype
+        context_messages.append(user_msg)
 
         # ---- 10. Generate AI reply ----
         try:
@@ -170,6 +184,54 @@ class WhatsAppService:
             logger.error("AI generation failed completely", error=str(e))
             ai_response = "Sorry, I'm having trouble responding right now."
             provider_used = "none"
+
+        import urllib.parse
+        
+        media_url = None
+        if "[GENERATE_IMAGE:" in ai_response:
+            try:
+                start = ai_response.index("[GENERATE_IMAGE:") + len("[GENERATE_IMAGE:")
+                end = ai_response.index("]", start)
+                prompt = ai_response[start:end].strip()
+                encoded_prompt = urllib.parse.quote(prompt)
+                media_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}"
+                ai_response = ai_response[:ai_response.index("[GENERATE_IMAGE:")].strip() + " " + ai_response[end+1:].strip()
+                if not ai_response.strip():
+                    ai_response = "Here is the image you requested!"
+            except Exception:
+                pass
+                
+        elif "[GENERATE_VIDEO:" in ai_response:
+            try:
+                start = ai_response.index("[GENERATE_VIDEO:") + len("[GENERATE_VIDEO:")
+                end = ai_response.index("]", start)
+                prompt = ai_response[start:end].strip()
+                
+                import replicate
+                import os
+                
+                if not os.environ.get("REPLICATE_API_TOKEN"):
+                    os.environ["REPLICATE_API_TOKEN"] = settings.REPLICATE_API_TOKEN
+                
+                # lucataco/hotshot-xl is a fast text-to-video model on Replicate
+                output = await asyncio.to_thread(
+                    replicate.run,
+                    "lucataco/hotshot-xl:78b3a6257e16e4b241245d65c8b2b81ea2e1ff7ed4c5de6cb9e86ba6ddbac284",
+                    input={"prompt": prompt, "mp4": True}
+                )
+                
+                if isinstance(output, list) and len(output) > 0:
+                    media_url = output[0]
+                else:
+                    media_url = output
+                    
+                ai_response = ai_response[:ai_response.index("[GENERATE_VIDEO:")].strip() + " " + ai_response[end+1:].strip()
+                if not ai_response.strip():
+                    ai_response = "Here is the video you requested!"
+            except Exception as e:
+                logger.error("Video generation failed", error=str(e))
+                media_url = None
+                ai_response = f"Failed to generate video. Error: {str(e)}"
 
         # ---- 11. Save outbound message ----
         outbound_data: dict[str, Any] = {
@@ -196,6 +258,9 @@ class WhatsAppService:
             )
         )
 
+        if media_url:
+            return {"reply": ai_response, "media_url": media_url}
+            
         return ai_response
 
     async def process_message_event(self, event: dict[str, Any]) -> None:

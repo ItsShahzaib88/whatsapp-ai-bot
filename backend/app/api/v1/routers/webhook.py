@@ -18,8 +18,10 @@ router = APIRouter(prefix="/internal")
 
 class IncomingMessage(BaseModel):
     phone: str
-    text: str
+    text: str = ""
     name: str = "User"
+    media_data: str | None = None
+    media_mimetype: str | None = None
 
 
 @router.post("/message")
@@ -39,13 +41,20 @@ async def receive_internal_message(
     service = WhatsAppService()
 
     try:
-        reply_text = await service.process_internal_message(
+        reply = await service.process_internal_message(
             phone=msg.phone,
             text=msg.text,
             name=msg.name,
+            media_data=msg.media_data,
+            media_mimetype=msg.media_mimetype,
         )
-        # reply_text is None when AI is toggled off for this contact
-        return {"reply": reply_text}
+        
+        # Check if the service returned a dict with media (for image generation)
+        if isinstance(reply, dict):
+            return {"reply": reply.get("reply"), "media_url": reply.get("media_url")}
+
+        # reply is None when AI is toggled off for this contact
+        return {"reply": reply}
 
     except Exception as e:
         logger.error("Failed to process bridge message", error=str(e), phone=msg.phone)

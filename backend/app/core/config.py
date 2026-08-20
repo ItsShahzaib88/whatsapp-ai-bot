@@ -76,6 +76,8 @@ class Settings(BaseSettings):
     TOGETHER_API_KEY: str = ""
     TOGETHER_MODEL: str = "meta-llama/Llama-3-70b-chat-hf"
 
+    REPLICATE_API_TOKEN: str = ""
+
     ACTIVE_AI_PROVIDER: str = "gemini"
     AUTO_FALLBACK_ENABLED: bool = True
 
