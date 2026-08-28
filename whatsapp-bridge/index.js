@@ -24,7 +24,7 @@ const path = require('path');
 //  CONFIGURATION
 // ============================================================
 const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL
-    || 'http://127.0.0.1:8000/api/v1/internal/message';
+    || 'https://whatsapp-ai-bot-ftku.onrender.com/api/v1/internal/message';
 
 // Human-like delay range (milliseconds) before sending reply.
 // Keeps behavior natural — avoids instant bot-like responses.

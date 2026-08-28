@@ -1,0 +1,15 @@
+services:
+
+  # Node.js WhatsApp Bridge Service
+  - type: web
+    name: node-bridge-service
+    env: docker
+    dockerContext: ./whatsapp-bridge
+    dockerfilePath: ./whatsapp-bridge/Dockerfile
+    plan: free
+    healthCheckPath: /ping
+    envVars:
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: "true"
+      - key: CHROME_PATH
+        value: "/usr/bin/chromium"

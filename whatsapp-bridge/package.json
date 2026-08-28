@@ -4,8 +4,8 @@
   "description": "Personal WhatsApp Web Bridge — Unofficial Bot using whatsapp-web.js",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "dependencies": {
     "axios": "^1.6.0",

@@ -18,7 +18,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://127.0.0.1:8000/api/v1/internal/message';
+// Health check endpoint to keep Render free tier awake
+app.get('/ping', (req, res) => {
+    res.status(200).send('pong');
+});
+
+const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'https://whatsapp-ai-bot-ftku.onrender.com/api/v1/internal/message';
 
 // Store active sessions: { sessionId: clientInstance }
 const sessions = {};
