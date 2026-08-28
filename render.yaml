@@ -12,4 +12,4 @@ services:
       - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
         value: "true"
       - key: CHROME_PATH
-        value: "/usr/bin/chromium"
+        value: "/usr/bin/google-chrome-stable"
